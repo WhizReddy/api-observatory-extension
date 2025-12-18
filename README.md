@@ -1,29 +1,30 @@
-# Proposed API Sample
+# api-observatory-extension
 
-This sample demonstrates usage of [Proposed API](https://code.visualstudio.com/api/advanced-topics/using-proposed-api).
+Monitor frontend API traffic and stream metadata to a backend observability platform.
 
-The `postinstall` script uses `vscode-dts dev && vscode-dts main` to download latest version of [`vscode.d.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/vscode.d.ts) and [`vscode.proposed.<proposalName>.d.ts`](https://github.com/microsoft/vscode/blob/main/src/vscode-dts) from the main branch of [microsoft/vscode](https://github.com/microsoft/vscode).
+## Features
 
-You can read more about `vscode-dts` at: https://github.com/microsoft/vscode-dts.
+- Monitor web requests across all websites
+- Stream API metadata to backend platforms
+- Easy-to-use popup interface
 
-- ⚠️ This sample can only be used for extension development in [Insider release](https://code.visualstudio.com/insiders/). You cannot publish extensions using Proposed API.
-- You need `"enabledApiProposals": ["<proposalName>"]` in `package.json`.
+## Installation
 
-## VS Code API
+1. Clone this repository
+2. Open Chrome and navigate to `chrome://extensions/`
+3. Enable "Developer mode"
+4. Click "Load unpacked" and select this directory
 
-### `vscode` module
+## Development
 
-- [`commands.registerCommand`](https://code.visualstudio.com/api/references/vscode-api#commands.registerCommand)
-- [`window.showInformationMessage`](https://code.visualstudio.com/api/references/vscode-api#window.showInformationMessage)
+This extension uses Manifest V3 and includes:
+- Service worker for background processing
+- Web request monitoring
+- Storage for configuration
 
-### Contribution Points
+## Permissions
 
-- [`contributes.commands`](https://code.visualstudio.com/api/references/contribution-points#contributes.commands)
-
-## Running the Sample
-
-- Run `npm install` in terminal to install dependencies
-- A `postinstall` script would download latest version of `vscode.proposed.<proposalName>.d.ts`
-- Run the `Run Extension` target in the Debug View. This will:
-	- Start a task `npm: watch` to compile the code
-	- Run the extension in a new VS Code window
+- `webRequest` & `webRequestBlocking`: Monitor network requests
+- `storage`: Save configuration
+- `activeTab`: Access current tab information
+- `<all_urls>`: Monitor requests across all websites
