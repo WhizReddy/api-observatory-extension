@@ -56,9 +56,15 @@
 
   function emit(payload) {
     try {
-      chrome.runtime.sendMessage({ type: 'API_OBSERVATORY_EVENT', payload });
+      // sendMessage can fail if the extension/service worker is not available.
+      const maybePromise = chrome.runtime.sendMessage({ type: 'API_OBSERVATORY_EVENT', payload });
+      if (maybePromise && typeof maybePromise.catch === 'function') {
+        maybePromise.catch((e) => {
+          dbg('sendMessage failed:', e?.message || e);
+        });
+      }
     } catch (e) {
-      dbg('sendMessage failed', e);
+      dbg('sendMessage threw:', e?.message || e);
     }
   }
 

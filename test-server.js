@@ -8,6 +8,11 @@ const port = 3000;
 // Serve static files
 app.use(express.static(__dirname));
 
+// Serve the test page at root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test-page.html'));
+});
+
 // API endpoints for testing
 app.get('/api/users', (req, res) => {
   setTimeout(() => {
