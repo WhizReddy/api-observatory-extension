@@ -17,17 +17,23 @@
   }
 
   // Bridge: forward events from page context to extension background.
-  // Using postMessage avoids Promise rejection noise in the page when the
-  // service worker is asleep/unavailable.
+  // sendMessage returns a Promise in MV3; it must be handled to avoid
+  // "Uncaught (in promise)" noise when the SW is not available.
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.__api_observatory__ !== true) return;
 
     try {
-      chrome.runtime.sendMessage({ type: 'API_OBSERVATORY_EVENT', payload: data.payload });
+      const p = chrome.runtime.sendMessage({ type: 'API_OBSERVATORY_EVENT', payload: data.payload });
+      if (p && typeof p.catch === 'function') {
+        p.catch((e) => {
+          // This happens when the extension is reloaded/disabled or SW is unavailable.
+          dbg('sendMessage rejected:', e?.message || e);
+        });
+      }
     } catch (e) {
-      dbg('sendMessage failed:', e?.message || e);
+      dbg('sendMessage threw:', e?.message || e);
     }
   });
 
@@ -57,7 +63,6 @@
   }
 
   function emit(payload) {
-    // Emit to our bridge listener above.
     window.postMessage({ __api_observatory__: true, payload }, '*');
   }
 
@@ -114,7 +119,6 @@
 
     function PatchedXHR() {
       const xhr = new OriginalXHR();
-
       let tracked = false;
       let url = '';
       let method = 'GET';
