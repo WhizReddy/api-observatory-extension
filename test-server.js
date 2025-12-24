@@ -15,7 +15,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'test-page.html'));
 });
 
-// Quiet favicon errors
+// Quiet favicon errors (browser may request this on hard reload)
 app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
