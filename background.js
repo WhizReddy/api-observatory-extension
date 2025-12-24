@@ -1,5 +1,92 @@
 // background.js - Service Worker for API Observatory
-import { logRequest, isTrackingEnabled } from "./utils/logger.js";
+// Inlined config to avoid import issues
+const CONFIG = {
+  BACKEND_URL: 'https://api.observatory-backend.com/logs',
+  BATCH_SIZE: 10,
+  BATCH_TIMEOUT_MS: 5000,
+  VERSION: '1.0.0'
+};
+
+// Inlined logger functions (no external imports)
+const queue = [];
+let flushTimer = null;
+let flushing = false;
+let retryAttempt = 0;
+
+function scheduleFlush(delayMs) {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    flush().catch(() => {});
+  }, delayMs);
+}
+
+function backoffMs(attempt) {
+  const base = 500;
+  const max = 8000;
+  return Math.min(max, base * Math.pow(2, Math.max(0, attempt)));
+}
+
+async function sendLog(logData) {
+  try {
+    const response = await fetch(CONFIG.BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Extension-Version': CONFIG.VERSION
+      },
+      body: JSON.stringify(logData)
+    });
+    if (!response.ok) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function logRequest(requestData) {
+  const event = {
+    ...requestData,
+    extensionVersion: CONFIG.VERSION
+  };
+  queue.push(event);
+  if (queue.length > 1000) {
+    queue.splice(0, queue.length - 1000);
+  }
+  if (queue.length >= CONFIG.BATCH_SIZE) {
+    scheduleFlush(0);
+  } else {
+    scheduleFlush(CONFIG.BATCH_TIMEOUT_MS);
+  }
+}
+
+async function flush() {
+  if (flushing) return;
+  if (queue.length === 0) return;
+  flushing = true;
+  const events = queue.splice(0, CONFIG.BATCH_SIZE);
+  try {
+    const ok = await sendLog({ events });
+    if (!ok) {
+      queue.unshift(...events);
+      retryAttempt += 1;
+      scheduleFlush(backoffMs(retryAttempt));
+      return;
+    }
+    retryAttempt = 0;
+    if (queue.length > 0) scheduleFlush(0);
+  } finally {
+    flushing = false;
+  }
+}
+
+async function isTrackingEnabled(domain) {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get([domain], (result) => {
+      resolve(!!result[domain]);
+    });
+  });
+}
 
 // DevTools connections keyed by tabId
 const devtoolsPortsByTabId = new Map();
@@ -42,6 +129,7 @@ chrome.runtime.onConnect.addListener((port) => {
     if (msg.type === 'REGISTER' && typeof msg.tabId === 'number') {
       registeredTabId = msg.tabId;
       devtoolsPortsByTabId.set(registeredTabId, port);
+      console.log('[API Observatory][bg] devtools connected for tab', registeredTabId);
     }
   });
 });
@@ -53,50 +141,36 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   const payload = message.payload;
   if (!payload || typeof payload !== 'object') return;
 
-  const isSelfTest = payload.selfTest === true;
-
   const tabId = sender?.tab?.id;
   const domain = extractDomain(payload.url);
   if (!domain) return;
 
-  // Self-test events are always accepted (for debug only).
-  // Normal events require per-domain tracking to be enabled.
-  const proceed = async () => {
-    if (isSelfTest) {
-      console.log('[API Observatory][bg] SELF-TEST event accepted:', payload.url);
-      return true;
-    }
-
-    const enabled = await isTrackingEnabled(domain);
-    if (!enabled) {
-      console.log('[API Observatory][bg] Dropped event (tracking disabled):', domain, payload.url);
-      return false;
-    }
-
-    return true;
+  const apiMetadata = {
+    url: payload.url,
+    method: payload.method,
+    statusCode: payload.statusCode,
+    duration: Math.max(0, Math.round(payload.durationMs || 0)),
+    timestamp: payload.timestamp || Date.now(),
+    domain,
+    kind: payload.kind,
+    ...(payload.error ? { error: payload.error } : {})
   };
 
-  proceed().then(async (ok) => {
-    if (!ok) return;
+  // Always forward to DevTools panel (if connected) so you can see live traffic.
+  if (typeof tabId === 'number') {
+    postToDevtools(tabId, { type: 'LOG', payload: apiMetadata });
+  }
 
-    const apiMetadata = {
-      url: payload.url,
-      method: payload.method,
-      statusCode: payload.statusCode,
-      duration: Math.max(0, Math.round(payload.durationMs || 0)),
-      timestamp: payload.timestamp || Date.now(),
-      domain,
-      kind: payload.kind,
-      ...(payload.error ? { error: payload.error } : {})
-    };
+  // Storage/stats are only updated when tracking is enabled.
+  isTrackingEnabled(domain).then(async (enabled) => {
+    if (!enabled) {
+      console.log('[API Observatory][bg] Dropped stats/logging (tracking disabled):', domain, apiMetadata.url);
+      return;
+    }
 
     try {
-      await logRequest(apiMetadata);
       await updateLocalStats(domain, apiMetadata, apiMetadata.statusCode === 0 || apiMetadata.statusCode >= 400);
       await storeLogEntry(domain, apiMetadata);
-      if (typeof tabId === 'number') {
-        postToDevtools(tabId, { type: 'LOG', payload: apiMetadata });
-      }
     } catch {
       // ignore
     }
@@ -137,3 +211,6 @@ async function storeLogEntry(domain, logEntry) {
     // ignore
   }
 }
+
+console.log('[API Observatory] Service worker initialized');
+console.log('[API Observatory][bg] service worker loaded');

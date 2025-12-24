@@ -14,6 +14,9 @@
 
   const pageOrigin = location.origin;
 
+  // One-time proof that interception is actually happening
+  let loggedFirstIntercept = false;
+
   function dbg(...args) {
     if (!DEBUG) return;
     try {
@@ -95,6 +98,11 @@
         const res = await originalFetch.apply(this, arguments);
         if (track) {
           const sUrl = sanitizeUrl(url);
+
+          if (!loggedFirstIntercept) {
+            loggedFirstIntercept = true;
+            console.log('[API Observatory][content] first request intercepted:', method, sUrl);
+          }
 
           emit({
             kind: 'fetch',
