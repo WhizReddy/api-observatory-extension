@@ -1,92 +1,10 @@
 // background.js - Service Worker for API Observatory
-// Inlined config to avoid import issues
-const CONFIG = {
-  BACKEND_URL: 'https://api.observatory-backend.com/logs',
-  BATCH_SIZE: 10,
-  BATCH_TIMEOUT_MS: 5000,
-  VERSION: '1.0.0'
-};
 
-// Inlined logger functions (no external imports)
-const queue = [];
-let flushTimer = null;
-let flushing = false;
-let retryAttempt = 0;
+// Keep background minimal and robust. If this file fails to register or throws at
+// top-level, content-script sendMessage will error with:
+// "Could not establish connection. Receiving end does not exist."
 
-function scheduleFlush(delayMs) {
-  if (flushTimer) return;
-  flushTimer = setTimeout(() => {
-    flushTimer = null;
-    flush().catch(() => {});
-  }, delayMs);
-}
-
-function backoffMs(attempt) {
-  const base = 500;
-  const max = 8000;
-  return Math.min(max, base * Math.pow(2, Math.max(0, attempt)));
-}
-
-async function sendLog(logData) {
-  try {
-    const response = await fetch(CONFIG.BACKEND_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Extension-Version': CONFIG.VERSION
-      },
-      body: JSON.stringify(logData)
-    });
-    if (!response.ok) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function logRequest(requestData) {
-  const event = {
-    ...requestData,
-    extensionVersion: CONFIG.VERSION
-  };
-  queue.push(event);
-  if (queue.length > 1000) {
-    queue.splice(0, queue.length - 1000);
-  }
-  if (queue.length >= CONFIG.BATCH_SIZE) {
-    scheduleFlush(0);
-  } else {
-    scheduleFlush(CONFIG.BATCH_TIMEOUT_MS);
-  }
-}
-
-async function flush() {
-  if (flushing) return;
-  if (queue.length === 0) return;
-  flushing = true;
-  const events = queue.splice(0, CONFIG.BATCH_SIZE);
-  try {
-    const ok = await sendLog({ events });
-    if (!ok) {
-      queue.unshift(...events);
-      retryAttempt += 1;
-      scheduleFlush(backoffMs(retryAttempt));
-      return;
-    }
-    retryAttempt = 0;
-    if (queue.length > 0) scheduleFlush(0);
-  } finally {
-    flushing = false;
-  }
-}
-
-async function isTrackingEnabled(domain) {
-  return new Promise((resolve) => {
-    chrome.storage.sync.get([domain], (result) => {
-      resolve(!!result[domain]);
-    });
-  });
-}
+console.log('[API Observatory][bg] service worker loaded');
 
 // DevTools connections keyed by tabId
 const devtoolsPortsByTabId = new Map();
@@ -101,16 +19,20 @@ function postToDevtools(tabId, message) {
   }
 }
 
-/**
- * Extract domain from a URL string
- * @param {string} url
- */
 function extractDomain(url) {
   try {
     return new URL(url).hostname;
   } catch {
     return '';
   }
+}
+
+async function isTrackingEnabled(domain) {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get([domain], (result) => {
+      resolve(!!result[domain]);
+    });
+  });
 }
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -130,51 +52,61 @@ chrome.runtime.onConnect.addListener((port) => {
       registeredTabId = msg.tabId;
       devtoolsPortsByTabId.set(registeredTabId, port);
       console.log('[API Observatory][bg] devtools connected for tab', registeredTabId);
+
+      // Panel currently expects optional STATE messages.
+      try {
+        port.postMessage({ type: 'STATE', origin: null, enabled: true });
+      } catch {
+        // ignore
+      }
     }
   });
 });
 
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (!message || typeof message !== 'object') return;
-  if (message.type !== 'API_OBSERVATORY_EVENT') return;
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  try {
+    // Always respond so sendMessage has a receiver.
+    sendResponse?.({ ok: true });
 
-  const payload = message.payload;
-  if (!payload || typeof payload !== 'object') return;
+    if (!message || typeof message !== 'object') return;
+    if (message.type !== 'API_OBSERVATORY_EVENT') return;
 
-  const tabId = sender?.tab?.id;
-  const domain = extractDomain(payload.url);
-  if (!domain) return;
+    const payload = message.payload;
+    if (!payload || typeof payload !== 'object') return;
 
-  const apiMetadata = {
-    url: payload.url,
-    method: payload.method,
-    statusCode: payload.statusCode,
-    duration: Math.max(0, Math.round(payload.durationMs || 0)),
-    timestamp: payload.timestamp || Date.now(),
-    domain,
-    kind: payload.kind,
-    ...(payload.error ? { error: payload.error } : {})
-  };
+    const tabId = sender?.tab?.id;
+    const domain = extractDomain(payload.url);
+    if (!domain) return;
 
-  // Always forward to DevTools panel (if connected) so you can see live traffic.
-  if (typeof tabId === 'number') {
-    postToDevtools(tabId, { type: 'LOG', payload: apiMetadata });
+    const apiMetadata = {
+      url: payload.url,
+      method: payload.method,
+      statusCode: payload.statusCode,
+      duration: Math.max(0, Math.round(payload.durationMs || 0)),
+      timestamp: payload.timestamp || Date.now(),
+      domain,
+      kind: payload.kind,
+      ...(payload.error ? { error: payload.error } : {})
+    };
+
+    // Always forward to DevTools if connected
+    if (typeof tabId === 'number') {
+      postToDevtools(tabId, { type: 'LOG', payload: apiMetadata });
+    }
+
+    // Stats/log storage are gated by per-domain tracking.
+    isTrackingEnabled(domain)
+      .then(async (enabled) => {
+        if (!enabled) return;
+        await updateLocalStats(domain, apiMetadata, apiMetadata.statusCode === 0 || apiMetadata.statusCode >= 400);
+        await storeLogEntry(domain, apiMetadata);
+      })
+      .catch(() => {});
+  } catch (e) {
+    console.warn('[API Observatory][bg] onMessage failed', e);
   }
 
-  // Storage/stats are only updated when tracking is enabled.
-  isTrackingEnabled(domain).then(async (enabled) => {
-    if (!enabled) {
-      console.log('[API Observatory][bg] Dropped stats/logging (tracking disabled):', domain, apiMetadata.url);
-      return;
-    }
-
-    try {
-      await updateLocalStats(domain, apiMetadata, apiMetadata.statusCode === 0 || apiMetadata.statusCode >= 400);
-      await storeLogEntry(domain, apiMetadata);
-    } catch {
-      // ignore
-    }
-  });
+  return true;
 });
 
 async function updateLocalStats(domain, apiMetadata, isError = false) {
@@ -211,6 +143,3 @@ async function storeLogEntry(domain, logEntry) {
     // ignore
   }
 }
-
-console.log('[API Observatory] Service worker initialized');
-console.log('[API Observatory][bg] service worker loaded');
