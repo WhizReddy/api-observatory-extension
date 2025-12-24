@@ -52,7 +52,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔍 API Observatory Test Page</h1>
+        <h1>API Observatory Test Page</h1>
         <p>Use these buttons to generate API requests for testing the extension:</p>
         
         <div>
@@ -87,12 +87,11 @@
             requestCounter++;
             const requestId = requestCounter;
             
-            log(`🚀 Request #${requestId}: ${method} ${endpoint}`);
+            log(`Request #${requestId}: ${method} ${endpoint}`);
             
             try {
-                // Create a fake API endpoint on the same origin
                 const response = await fetch(endpoint, {
-                    method: method,
+                    method,
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -106,24 +105,30 @@
                 });
 
                 if (response.ok) {
-                    log(`✅ Request #${requestId}: ${response.status} ${response.statusText}`);
+                    log(`Request #${requestId}: ${response.status} ${response.statusText}`);
                 } else {
-                    log(`❌ Request #${requestId}: ${response.status} ${response.statusText}`);
+                    log(`Request #${requestId}: ${response.status} ${response.statusText}`);
                 }
                 
             } catch (error) {
-                log(`💥 Request #${requestId}: Error - ${error.message}`);
+                log(`Request #${requestId}: Error - ${error.message}`);
             }
         }
 
         async function makeMultipleRequests() {
-            log('🔥 Generating multiple requests...');
-            const endpoints = ['/api/users', '/api/posts', '/api/comments', '/v1/data', '/api/settings'];
+            log('Generating multiple requests...');
             
-            for (let i = 0; i < endpoints.length; i++) {
-                await makeApiRequest(endpoints[i]);
-                // Add small delay between requests
-                await new Promise(resolve => setTimeout(resolve, 500));
+            const endpoints = [
+                { path: '/api/users', method: 'GET' },
+                { path: '/api/posts', method: 'GET' },
+                { path: '/api/comments', method: 'POST' },
+                { path: '/v1/data', method: 'GET' },
+                { path: '/api/users', method: 'GET' }
+            ];
+            
+            for (const e of endpoints) {
+                await makeApiRequest(e.path, e.method);
+                await new Promise(resolve => setTimeout(resolve, 400));
             }
         }
 
@@ -132,11 +137,10 @@
             requestCounter = 0;
         }
 
-        // Auto-generate some requests on page load
         window.addEventListener('load', () => {
             setTimeout(() => {
-                log('🎯 Test page loaded! Click buttons above to test API Observatory extension.');
-            }, 1000);
+                log('Test page loaded. Click buttons above to generate requests.');
+            }, 250);
         });
     </script>
 </body>
