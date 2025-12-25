@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>API Observatory — Pro</title>
+  <style>
+    body{font-family:system-ui, sans-serif; max-width: 720px; margin: 28px auto; padding: 0 14px;}
+    .card{border:1px solid #ddd; border-radius:12px; padding:14px; margin-top:14px;}
+    input{width:100%; padding:10px; font-size:14px; border-radius:10px; border:1px solid #ccc;}
+    button{padding:10px 12px; border-radius:10px; border:none; background:#1f6feb; color:#fff; cursor:pointer;}
+    button.secondary{background:#444;}
+    .row{display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;}
+    .ok{color: #0a7a2f; font-weight:700;}
+    .bad{color: #b42318; font-weight:700;}
+    code{background:#f6f6f6; padding:2px 6px; border-radius:6px;}
+  </style>
+</head>
+<body>
+  <h2>API Observatory — Pro</h2>
+  <p>Enter your license key to unlock Pro features in DevTools (Grouped View, Export, Sessions).</p>
+
+  <div class="card">
+    <div><b>License key</b></div>
+    <div class="row">
+      <input id="key" placeholder="API-OBS-XXXX-XXXX-XXXX" />
+    </div>
+    <div class="row">
+      <button id="save">Save & Activate</button>
+      <button id="clear" class="secondary">Remove Key</button>
+    </div>
+    <div id="status" class="row"></div>
+    <p style="opacity:.8;margin-top:10px">
+      Demo key format: <code>API-OBS-1234-5678-ABCD</code>
+    </p>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,145 +1,138 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>API Observatory</title>
-    <style>
-      :root {
-        --bg: #0b1020;
-        --panel: #121a33;
-        --muted: #93a4c7;
-        --text: #e8eeff;
-        --border: rgba(255,255,255,.12);
-        --green: #10b981;
-        --red: #ef4444;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font: 12px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-      }
-      header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--border);
-        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
-      }
-      .left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-      .title { font-weight: 700; letter-spacing: .2px; }
-      .subtitle { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-      button {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        color: var(--text);
-        border-radius: 8px;
-        padding: 6px 10px;
-        cursor: pointer;
-      }
-      button:hover { filter: brightness(1.08); }
-      button:active { transform: translateY(1px); }
-      button.primary { border-color: rgba(16,185,129,.55); }
-      button.danger { border-color: rgba(239,68,68,.55); }
-      .filter {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        color: var(--muted);
-        user-select: none;
-      }
-      .filter input { transform: translateY(1px); }
-      main { padding: 10px 12px; }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        overflow: hidden;
-      }
-      thead th {
-        text-align: left;
-        padding: 8px;
-        font-size: 11px;
-        color: var(--muted);
-        border-bottom: 1px solid var(--border);
-      }
-      tbody td {
-        padding: 8px;
-        border-bottom: 1px solid var(--border);
-        vertical-align: top;
-      }
-      tbody tr:last-child td { border-bottom: none; }
-      tbody tr:hover { background: rgba(255,255,255,.04); }
-
-      /* row status coloring */
-      tr.row-ok { border-left: 3px solid rgba(16,185,129,.9); }
-      tr.row-bad { border-left: 3px solid rgba(239,68,68,.9); }
-
-      .pill {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: rgba(255,255,255,.06);
-      }
-      .ok { color: var(--green); }
-      .bad { color: var(--red); }
-      .url { max-width: 560px; word-break: break-all; color: var(--text); }
-      .muted { color: var(--muted); }
-      .empty {
-        margin-top: 10px;
-        padding: 10px;
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        background: rgba(255,255,255,.03);
-      }
-      .hidden { display: none; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="left">
-        <div class="title">API Observatory</div>
-        <div class="subtitle" id="subtitle">Waiting for tab</div>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root{
+      --bg:#0b0f17; --panel:#0f1623; --panel2:#101a2b;
+      --border:#1c2740; --text:#e6edf3; --muted:#94a3b8;
+      --blue:#3b82f6; --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0; font-family:var(--sans); color:var(--text);
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(59,130,246,.18), transparent 60%),
+                  radial-gradient(900px 500px at 90% 10%, rgba(245,158,11,.12), transparent 55%),
+                  var(--bg);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      padding:10px 12px; border-bottom:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(15,22,35,.92), rgba(11,15,23,.92));
+      backdrop-filter: blur(8px);
+    }
+    .top{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+    .brand{display:flex; align-items:center; gap:10px;}
+    .logo{width:28px;height:28px;border-radius:10px;
+      background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(34,197,94,.8));
+      box-shadow: 0 8px 22px rgba(59,130,246,.22);}
+    .title{font-weight:800; font-size:13px;}
+    .sub{font-size:11px; color:var(--muted);}
+    .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+    .btn{
+      border:1px solid var(--border);
+      background: rgba(16,26,43,.9);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor:pointer;
+      box-shadow: var(--shadow);
+    }
+    .btn.primary{border-color: rgba(59,130,246,.55); background: rgba(59,130,246,.18);}
+    .btn.danger{border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.12);}
+    .seg{display:flex; border:1px solid var(--border); background: rgba(16,26,43,.9); border-radius: 12px; overflow:hidden; box-shadow: var(--shadow);}
+    .seg button{border:none; background:transparent; color:var(--muted); padding:6px 10px; font-size:12px; cursor:pointer;}
+    .seg button.active{color:var(--text); background: rgba(59,130,246,.18);}
+    .filters{margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+    .input{display:flex; gap:8px; align-items:center; background: rgba(16,26,43,.9); border:1px solid var(--border);
+      border-radius:12px; padding:6px 10px; min-width:260px; box-shadow: var(--shadow);}
+    .input span{font-size:12px; color:var(--muted);}
+    .input input{border:none; outline:none; background:transparent; color:var(--text); font-size:12px; width:100%;}
+    .toggle{display:flex; gap:8px; align-items:center; border:1px solid var(--border); background: rgba(16,26,43,.9);
+      padding:6px 10px; border-radius: 999px; box-shadow: var(--shadow); font-size:12px; color:var(--muted);}
+    main{padding: 10px 12px 16px; height: calc(100vh - 118px); overflow:auto;}
+    table{width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:14px;
+      background: rgba(15,22,35,.8); box-shadow: var(--shadow); overflow:hidden;}
+    thead th{position:sticky; top:0; z-index:5; text-align:left; font-size:11px; color:var(--muted); font-weight:700;
+      padding:10px 10px; background: rgba(16,26,43,.92); border-bottom:1px solid var(--border);}
+    tbody td{padding:9px 10px; border-bottom:1px solid rgba(28,39,64,.75); font-size:12px;}
+    tbody tr:hover td{background: rgba(59,130,246,.06);}
+    .mono{font-family:var(--mono);}
+    .right{text-align:right;}
+    .muted{color:var(--muted);}
+    .badge{display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(28,39,64,.9); background: rgba(11,18,32,.7); font-size:11px;}
+    .badge.ok{border-color: rgba(34,197,94,.35);}
+    .badge.warn{border-color: rgba(245,158,11,.35);}
+    .badge.err{border-color: rgba(239,68,68,.35);}
+    .row-error td{color: rgba(255,123,114,.95);}
+    .row-slow td{color: rgba(245,158,11,.95);}
+    .probar{
+      margin-top:10px; padding:10px; border:1px solid rgba(59,130,246,.35);
+      background: rgba(59,130,246,.10); border-radius: 14px; box-shadow: var(--shadow);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      color: var(--text);
+    }
+    .probar b{font-weight:900;}
+    .probar .muted{font-size:12px;}
+    .hidden{display:none;}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="top">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="title">API Observatory</div>
+          <div class="sub" id="subtitle">Streaming</div>
+        </div>
       </div>
+
       <div class="controls">
-        <button id="view-toggle">Grouped view</button>
-        <label class="filter">
-          <input type="checkbox" id="only-success" />
-          Show only successful requests
-        </label>
-        <button id="toggle-stream" class="primary">Pause</button>
-        <button id="clear-data" class="danger">Clear data</button>
-        <button id="clear" class="danger">Clear</button>
+        <div class="seg">
+          <button id="viewLive" class="active">Live</button>
+          <button id="viewGrouped">Grouped (Pro)</button>
+        </div>
+        <button id="exportJson" class="btn">Export JSON (Pro)</button>
+        <button id="exportCsv" class="btn">Export CSV (Pro)</button>
+        <button id="saveSession" class="btn">Save Session (Pro)</button>
+        <button id="pause" class="btn primary">Pause</button>
+        <button id="clear" class="btn danger">Clear</button>
       </div>
-    </header>
-    <main>
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 90px;">Time</th>
-            <th style="width: 70px;">Method</th>
-            <th>Path</th>
-            <th style="width: 70px;">Status</th>
-            <th style="width: 80px;">Dur (ms)</th>
-          </tr>
-        </thead>
-        <tbody id="rows"></tbody>
-      </table>
+    </div>
 
-      <div id="empty" class="empty muted hidden"></div>
-
-      <div class="muted" style="padding: 8px 2px 0;">
-        Tip: enable tracking for the current domain in the popup.
+    <div class="filters">
+      <div class="input">
+        <span>Search</span>
+        <input id="search" placeholder="Filter by method/path (e.g. /api/users, POST)" />
       </div>
-    </main>
-    <script src="panel.js"></script>
-  </body>
+
+      <label class="toggle"><input id="onlySuccess" type="checkbox" /> Successful only</label>
+      <label class="toggle"><input id="onlyErrors" type="checkbox" /> Errors only</label>
+      <label class="toggle"><input id="onlySlow" type="checkbox" /> Slow only</label>
+    </div>
+
+    <div id="probar" class="probar hidden">
+      <div>
+        <b>Pro feature locked</b>
+        <div class="muted">Activate Pro to unlock Grouped view, Export, and Sessions.</div>
+      </div>
+      <button id="openOptions" class="btn primary">Activate Pro</button>
+    </div>
+  </header>
+
+  <main>
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </main>
+
+  <script src="panel.js"></script>
+</body>
 </html>
