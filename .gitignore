@@ -1,4 +1,26 @@
-out
-node_modules
-.vscode-test/
-*.vsix
+# Extensions
+*.zip
+*.crx
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Development
+.gemini/
+brain/
+implementation_plan.md
+task.md
+walkthrough.md
+TEST_ACTIVATION.md
+FIXES_APPLIED.md
+PAYMENT_INTEGRATION_COMPLETE.md
+NEW_FEATURES.md
+test-server.js
+
+# Environment
+.env

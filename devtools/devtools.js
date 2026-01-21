@@ -1,3 +1,4 @@
+// devtools/devtools.js
 chrome.devtools.panels.create(
   'API Observatory',
   '',

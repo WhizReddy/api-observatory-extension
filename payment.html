@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Activate Pro</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 40px;
+            width: 420px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #8b949e;
+            margin-bottom: 30px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .divider {
+            border-top: 1px solid #30363d;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .divider span {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #161b22;
+            padding: 0 10px;
+            color: #8b949e;
+            font-size: 12px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 16px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: #7c3aed;
+        }
+
+        .btn-primary {
+            background: #238636;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        .btn-buy {
+            background: linear-gradient(135deg, #7928ca, #ff0080);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-block;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+
+        button:hover,
+        a:hover {
+            opacity: 0.9;
+        }
+
+        .err-msg {
+            color: #f85149;
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card" id="card">
+        <h1>Activate API Observatory</h1>
+        <p>To support development and unlock Pro features, please purchase a license key.</p>
+
+        <a href="https://redi.lemonsqueezy.com/checkout/buy/89353dad-b37f-47c5-aaa2-f6f5670dfddc" target="_blank"
+            class="btn-buy" style="margin-bottom: 10px;">
+            Purchase License ($5)
+        </a>
+
+        <button id="sim-buy"
+            style="background: transparent; border: 1px dashed #30363d; color: #8b949e; margin-top: 10px; padding: 8px; border-radius: 6px; width: 100%; font-size: 12px; cursor: pointer;">
+            (Dev Only) Simulate Purchase & Get Key
+        </button>
+
+        <div class="divider"><span>OR</span></div>
+
+        <div style="text-align: left;">
+            <div style="font-size: 12px; font-weight: 600; color: #8b949e;">ENTER YOUR LICENSE KEY</div>
+            <input type="text" id="license" placeholder="XXXX-XXXX-XXXX-XXXX">
+            <div id="err" class="err-msg">Invalid License Key</div>
+            <button id="activate" class="btn-primary">Activate</button>
+        </div>
+    </div>
+
+    <script src="payment.js"></script>
+
+</body>
+
+</html>

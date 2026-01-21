@@ -1,347 +1,118 @@
-// popup.js
+document.addEventListener('DOMContentLoaded', init);
 
-// Inline config to avoid module import issues
-const CONFIG = {
-  VERSION: '1.0.0',
-  NAME: 'API Observatory'
-};
+async function init() {
+  const content = document.getElementById('content');
 
-// State management
-let currentDomain = '';
-let stats = {
-  requests: 0,
-  avgDuration: 0,
-  errors: 0
-};
-
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    // Get current tab information
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (!tab?.url) {
-      showError("Unable to access current tab information");
-      return;
-    }
-
-    // Check if it's a valid HTTP/HTTPS URL
-    if (!tab.url.startsWith('http://') && !tab.url.startsWith('https://')) {
-      showError("API Observatory only works on HTTP/HTTPS websites");
-      return;
-    }
-
-    const url = new URL(tab.url);
-    currentDomain = url.hostname;
-    
-    // Get current tracking status and stats
-    const result = await chrome.storage.sync.get([currentDomain]);
-    const domainStats = await getDomainStats(currentDomain);
-    
-    const isTrackingEnabled = !!result[currentDomain];
-    stats = domainStats;
-    
-    // Render the UI
-    renderUI(currentDomain, isTrackingEnabled);
-    
-    // Start real-time updates if tracking is enabled
-    if (isTrackingEnabled) {
-      startRealtimeUpdates();
-    }
-    
-  } catch (error) {
-    console.error('Error initializing popup:', error);
-    showError("Failed to initialize API Observatory");
-  }
-});
-
-/**
- * Render the main UI with stats
- */
-function renderUI(domain, isEnabled) {
-  const contentDiv = document.getElementById("content");
-  
-  contentDiv.innerHTML = `
-    <div class="main-card">
-      <div class="domain-section">
-        <div class="domain-label">Current Domain</div>
-        <div class="domain-name">${escapeHtml(domain)}</div>
-      </div>
-      
-      <div class="status-row">
-        <div class="status-indicator">
-          <span class="status-dot ${isEnabled ? 'enabled' : 'disabled'}"></span>
-          <span>${isEnabled ? 'Tracking Active' : 'Tracking Disabled'}</span>
-        </div>
-      </div>
-      
-      <button 
-        id="toggle-tracking" 
-        class="toggle-button ${isEnabled ? 'disable' : 'enable'}"
-      >
-        ${isEnabled ? 'Disable Tracking' : 'Enable Tracking'}
-      </button>
-    </div>
-    
-    ${isEnabled ? renderStatsSection() : ''}
-    
-    <div class="quick-actions">
-      <button class="action-button" id="export-data">
-        📊 Export Data
-      </button>
-      <button class="action-button" id="clear-stats">
-        🗑️ Clear Stats
-      </button>
-    </div>
-    
-    <div class="footer">
-      Monitor API requests • Real-time analytics
-    </div>
-  `;
-
-  // Add event listeners
-  setupEventListeners(domain, isEnabled);
-}
-
-/**
- * Render the statistics section
- */
-function renderStatsSection() {
-  return `
-    <div class="main-card">
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value" id="stat-requests">${stats.requests}</div>
-          <div class="stat-label">Requests</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-duration">${stats.avgDuration}ms</div>
-          <div class="stat-label">Avg Time</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-errors">${stats.errors}</div>
-          <div class="stat-label">Errors</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-/**
- * Setup event listeners for UI interactions
- */
-function setupEventListeners(domain, isEnabled) {
-  // Toggle tracking button
-  const toggleButton = document.getElementById("toggle-tracking");
-  if (toggleButton) {
-    toggleButton.addEventListener("click", () => toggleTracking(domain, isEnabled));
-  }
-  
-  // Export data button
-  const exportButton = document.getElementById("export-data");
-  if (exportButton) {
-    exportButton.addEventListener("click", exportData);
-  }
-  
-  // Clear stats button
-  const clearButton = document.getElementById("clear-stats");
-  if (clearButton) {
-    clearButton.addEventListener("click", clearStats);
-  }
-}
-
-/**
- * Toggle tracking for the current domain
- */
-async function toggleTracking(domain, currentStatus) {
-  const toggleButton = document.getElementById("toggle-tracking");
-  const statusDot = document.querySelector(".status-dot");
-  const statusText = document.querySelector(".status-indicator span:last-child");
-  
-  // Disable button during operation
-  toggleButton.disabled = true;
-  toggleButton.textContent = "Updating...";
-  
-  try {
-    const newStatus = !currentStatus;
-    
-    // Update storage
-    await chrome.storage.sync.set({ [domain]: newStatus });
-    
-    // Show feedback
-    showToast(newStatus ? `✅ Tracking enabled for ${domain}` : `🚫 Tracking disabled for ${domain}`);
-    
-    // Re-render to show/hide stats
-    renderUI(domain, newStatus);
-    
-    // Start/stop real-time updates
-    if (newStatus) {
-      startRealtimeUpdates();
-    } else {
-      stopRealtimeUpdates();
-    }
-    
-  } catch (error) {
-    console.error('Error toggling tracking:', error);
-    showError("Failed to update tracking settings");
-  }
-}
-
-/**
- * Get statistics for a domain
- */
-async function getDomainStats(domain) {
-  try {
-    const result = await chrome.storage.local.get([`stats_${domain}`]);
-    return result[`stats_${domain}`] || { requests: 0, avgDuration: 0, errors: 0 };
-  } catch (error) {
-    console.error('Error getting domain stats:', error);
-    return { requests: 0, avgDuration: 0, errors: 0 };
-  }
-}
-
-/**
- * Update statistics display
- */
-function updateStatsDisplay(newStats) {
-  const requestsEl = document.getElementById("stat-requests");
-  const durationEl = document.getElementById("stat-duration");
-  const errorsEl = document.getElementById("stat-errors");
-  
-  if (requestsEl) requestsEl.textContent = newStats.requests;
-  if (durationEl) durationEl.textContent = `${newStats.avgDuration}ms`;
-  if (errorsEl) errorsEl.textContent = newStats.errors;
-  
-  stats = newStats;
-}
-
-/**
- * Start real-time updates of statistics
- */
-let updateInterval;
-function startRealtimeUpdates() {
-  if (updateInterval) return;
-  
-  updateInterval = setInterval(async () => {
-    try {
-      const newStats = await getDomainStats(currentDomain);
-      updateStatsDisplay(newStats);
-    } catch (error) {
-      console.error('Error updating stats:', error);
-    }
-  }, 2000); // Update every 2 seconds
-}
-
-/**
- * Stop real-time updates
- */
-function stopRealtimeUpdates() {
-  if (updateInterval) {
-    clearInterval(updateInterval);
-    updateInterval = null;
-  }
-}
-
-/**
- * Export data functionality
- */
-async function exportData() {
-  try {
-    const result = await chrome.storage.local.get([`logs_${currentDomain}`]);
-    const logs = result[`logs_${currentDomain}`] || [];
-    
-    if (logs.length === 0) {
-      showToast("📋 No data to export");
-      return;
-    }
-    
-    const data = {
-      domain: currentDomain,
-      exportTime: new Date().toISOString(),
-      stats: stats,
-      logs: logs
+  // Side Panel logic
+  const openSideBtn = document.getElementById('open-sidepanel');
+  if (openSideBtn) {
+    openSideBtn.onclick = () => {
+      chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+      window.close(); // Close popup after opening side panel
     };
-    
-    // Create downloadable file
-    const dataStr = JSON.stringify(data, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    // Create download link and trigger
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `api-observatory-${currentDomain}-${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showToast("📁 Data exported successfully");
-  } catch (error) {
-    console.error('Error exporting data:', error);
-    showToast("❌ Export failed");
   }
-}
 
-/**
- * Clear statistics
- */
-async function clearStats() {
   try {
-    await chrome.storage.local.remove([`stats_${currentDomain}`, `logs_${currentDomain}`]);
-    
-    // Reset stats
-    stats = { requests: 0, avgDuration: 0, errors: 0 };
-    updateStatsDisplay(stats);
-    
-    showToast("🗑️ Statistics cleared");
-  } catch (error) {
-    console.error('Error clearing stats:', error);
-    showToast("❌ Failed to clear stats");
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab?.url || !tab.url.startsWith('http')) {
+      content.innerHTML = `<div class="err">Open a website tab to use API Observatory.</div>`;
+      return;
+    }
+
+    const domain = new URL(tab.url).hostname;
+    console.log('[Popup] Domain:', domain);
+    const syncData = await chrome.storage.sync.get([domain, 'is_premium']);
+    const localData = await chrome.storage.local.get(['monthly_requests', 'stats_' + domain]);
+    console.log('[Popup] Storage Data:', { syncData, localData });
+
+    // Check Status
+    const enabled = syncData[domain] !== false;
+    const isPremium = syncData.is_premium === true;
+    const monthlyRequests = localData.monthly_requests || 0;
+    const FREE_MONTHLY_LIMIT = 200;
+
+    const stats = localData['stats_' + domain] || {
+      requests: 0,
+      errors: 0,
+      totalDuration: 0
+    };
+
+    const avg = stats.requests ? Math.round(stats.totalDuration / stats.requests) : 0;
+
+    content.innerHTML = `
+      <div class="control-card">
+        <div class="domain-info">
+          <div class="domain-label">
+            <span class="label">Current Domain</span>
+            <span class="domain-name">${domain}</span>
+          </div>
+          <div class="status-pill">
+            <div class="status-dot ${enabled ? 'active' : 'paused'}"></div>
+            <span class="status-text">${enabled ? 'Capturing' : 'Paused'}</span>
+          </div>
+        </div>
+
+        <div class="plan-section">
+          <div class="plan-info">
+            <div class="plan-name">
+              ${isPremium ? '💎 PRO PLAN' : 'FREE TIER'}
+            </div>
+            ${!isPremium ? `<button id="upgrade-btn">UPGRADE</button>` : ''}
+          </div>
+          
+          ${!isPremium ? `
+            <div class="usage-meter">
+              <div class="meter-text">
+                <span>Usage</span>
+                <span>${monthlyRequests} / ${FREE_MONTHLY_LIMIT}</span>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill" style="width: ${Math.min(100, (monthlyRequests / FREE_MONTHLY_LIMIT) * 100)}%; background: ${monthlyRequests > FREE_MONTHLY_LIMIT * 0.8 ? 'var(--error)' : 'var(--accent-primary)'}"></div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <button id="toggle-btn" class="btn-toggle">
+        ${enabled ? 'Disable Tracking' : 'Enable Tracking'}
+      </button>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-value">${stats.requests}</span>
+          <span class="stat-label">Requests</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">${avg}ms</span>
+          <span class="stat-label">Latency</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">${stats.errors}</span>
+          <span class="stat-label">Errors</span>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('toggle-btn').addEventListener('click', async () => {
+      await chrome.storage.sync.set({ [domain]: !enabled });
+      init();
+    });
+
+    if (!isPremium) {
+      document.getElementById('upgrade-btn').addEventListener('click', () => {
+        chrome.tabs.create({ url: 'payment.html' });
+      });
+    }
+
+  } catch (e) {
+    console.error(e);
+    content.innerHTML = `<div class="err">Popup failed to load.</div>`;
   }
 }
 
-/**
- * Show error message
- */
-function showError(message) {
-  const contentDiv = document.getElementById("content");
-  contentDiv.innerHTML = `
-    <div class="error">
-      ${escapeHtml(message)}
-    </div>
-    <div class="footer">
-      Please refresh the page and try again
-    </div>
-  `;
-}
-
-/**
- * Show toast notification
- */
-function showToast(message, duration = 3000) {
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = message;
-  
-  document.body.appendChild(toast);
-  
-  setTimeout(() => {
-    if (document.body.contains(toast)) {
-      toast.remove();
-    }
-  }, duration);
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Cleanup on popup close
-window.addEventListener('beforeunload', () => {
-  stopRealtimeUpdates();
+// React to storage changes (e.g. background script increments counter)
+chrome.storage.onChanged.addListener((changes) => {
+  init(); // Simply re-fetch and re-render everything
 });

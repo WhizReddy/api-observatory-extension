@@ -1,31 +1,35 @@
-// content-script.js
 (() => {
   if (window.__API_OBS_BRIDGE__) return;
   window.__API_OBS_BRIDGE__ = true;
 
-  // inject page-script into PAGE world
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('page-script.js');
-  script.onload = () => script.remove();
-  (document.head || document.documentElement).appendChild(script);
+  // 🚀 Bridge Logic
+  // This content script runs in the ISOLATED world (default)
+  // It listens for messages from the MAIN world (page-script.js) 
+  // and forwards them to the background script.
 
-  // bridge page->extension->background
+
+  function forward(payload) {
+    // 🔑 Check extension context FIRST
+    if (!chrome?.runtime?.id) return;
+
+    try {
+      chrome.runtime.sendMessage(
+        { type: 'API_OBSERVATORY_EVENT', payload },
+        () => {
+          // Swallow expected MV3 disconnect noise
+          void chrome.runtime.lastError;
+        }
+      );
+    } catch {
+      // Context invalidated — expected, ignore
+    }
+  }
+
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     const data = event.data;
     if (!data || data.__api_observatory__ !== true) return;
 
-    // MV3-safe: callback form + swallow runtime.lastError (no console spam)
-    try {
-      chrome.runtime.sendMessage(
-        { type: 'API_OBSERVATORY_EVENT', payload: data.payload },
-        () => void chrome.runtime.lastError
-      );
-    } catch {
-      // ignore
-    }
+    forward(data.payload);
   });
-
-  // optional: small log
-  // console.log('[API Observatory] bridge injected');
 })();
