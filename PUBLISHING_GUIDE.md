@@ -41,15 +41,20 @@ This guide explains how to prepare and submit your extension to the Chrome Web S
 3.  **Privacy Tab**:
     - **Single Purpose**: "Live API observability and request tracking inside DevTools."
     - **Permissions**: Explain that `<all_urls>` and `storage` are needed to capture network requests and save user preferences/license status.
-4.  **License Key (Lemon Squeezy)**:
-    - In the "Reviewer Instructions" field, provide a **Test License Key** (`TEST-REDIBALLA` or `123`) so the Chrome reviewers can test the Pro features without paying.
+4.  **License Key (Gumroad)**:
+    - In the "Reviewer Instructions" field, provide a **Test License Key** (`TEST-REDIBALLA`) so the Chrome reviewers can test the Pro features without paying.
 
 ---
 
-## 🔑 Step 4: Finalize Lemon Squeezy
+## 🔑 Step 4: Finalize Gumroad Setup
 
-1.  Ensure your **Webhook** is set up if you want to automate license generation (or just use Lemon Squeezy's default license generation).
-2.  Change your **API Key** in `payment.js` from **Test Mode** to **Live Mode** before your final zip if you are ready to take real payments.
+1.  **Create Product**: Go to [Gumroad](https://gumroad.com/) and create a "Digital Product".
+2.  **License Keys**: In the product "Checkout" tab, you **MUST** enable **"Generate a unique license key per sale"**. 
+3.  **Find Permalink**: Your product URL slug (e.g., `api-observatory-pro`) is your permalink.
+4.  **Update Config**: 
+    - Open `payment.js` and update `GUMROAD_PRODUCT_PERMALINK` with your permalink.
+    - Open `payment.html` and update the link with your checkout URL.
+5.  **Test Purchase**: Gumroad allows you to "buy" your own product with a dummy card to test the license key activation flow.
 
 ---
 

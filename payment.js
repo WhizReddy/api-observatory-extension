@@ -93,45 +93,51 @@ function handleActivate() {
         return;
     }
 
-    // Real Lemon Squeezy API call
-    getInstanceId().then(instanceId => {
-        return fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                license_key: key,
-                instance_name: instanceId  // Unique per installation - prevents fraud
-            })
+    // --- GUMROAD CONFIGURATION ---
+    // User: Replace this with your actual Gumroad product permalink (slug)
+    const GUMROAD_PRODUCT_PERMALINK = 'api-observatory-pro';
+    // ----------------------------
+
+    // Real Gumroad API call
+    console.log('[Payment Page] Verifying with Gumroad...');
+
+    fetch('https://api.gumroad.com/v2/licenses/verify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            product_permalink: GUMROAD_PRODUCT_PERMALINK,
+            license_key: key
         })
     })
         .then(async (res) => {
             const data = await res.json();
-            console.log('[License API Response]', data);
+            console.log('[Gumroad API Response]', data);
 
-            const isActivated = data.activated === true;
-            const hasActiveLicense = data.license_key?.status === 'active';
-            const hasValidLicense = data.license_key &&
-                data.license_key.status !== 'inactive' &&
-                data.license_key.status !== 'expired' &&
-                data.license_key.status !== 'disabled';
+            // Gumroad returns success: true if the key is valid
+            if (data.success === true) {
+                // Check if the purchase is not refunded or disputed
+                const purchase = data.purchase || {};
+                if (purchase.refunded || purchase.chargeback) {
+                    throw new Error('This license has been refunded or disputed.');
+                }
 
-            if (isActivated || hasActiveLicense || hasValidLicense) {
                 chrome.storage.sync.set({ is_premium: true }, () => {
+                    console.log('[Gumroad] ✅ Premium status saved!');
                     showSuccess();
                 });
             } else {
-                const errorMsg = data.error || data.message || 'License key invalid or not found';
+                const errorMsg = data.message || 'License key invalid or not found';
                 throw new Error(errorMsg);
             }
         })
         .catch(error => {
-            console.error('[License Activation Error]', error);
+            console.error('[Gumroad Activation Error]', error);
             btn.textContent = 'Activate';
             btn.disabled = false;
             err.style.display = 'block';
-            err.textContent = '❌ ' + error.message;
+            err.textContent = '❌ ' + (error.message || 'Verification failed');
         });
 }
+
