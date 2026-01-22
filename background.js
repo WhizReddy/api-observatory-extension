@@ -9,26 +9,31 @@ let monthlyRequestsCached = null;
 let statsCache = {}; // domain -> stats
 
 async function ensureStateLoaded() {
-  if (isPremiumCached !== null && monthlyRequestsCached !== null) return;
+  if (isPremiumCached === null || monthlyRequestsCached === null) {
+    const sync = await chrome.storage.sync.get('is_premium');
+    const local = await chrome.storage.local.get(['monthly_requests', 'counter_reset_date']);
 
-  const sync = await chrome.storage.sync.get('is_premium');
-  const local = await chrome.storage.local.get(['monthly_requests', 'counter_reset_date']);
-
-  isPremiumCached = sync.is_premium === true;
-  monthlyRequestsCached = local.monthly_requests || 0;
+    isPremiumCached = sync.is_premium === true;
+    monthlyRequestsCached = local.monthly_requests || 0;
+    lastResetCheckDate = local.counter_reset_date || '';
+  }
 
   const now = new Date();
-  const resetDate = local.counter_reset_date ? new Date(local.counter_reset_date) : null;
+  const resetDate = lastResetCheckDate ? new Date(lastResetCheckDate) : null;
 
   if (!resetDate || resetDate.getMonth() !== now.getMonth() || resetDate.getFullYear() !== now.getFullYear()) {
     monthlyRequestsCached = 0;
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    lastResetCheckDate = nextMonth.toISOString();
     await chrome.storage.local.set({
       monthly_requests: 0,
-      counter_reset_date: nextMonth.toISOString()
+      counter_reset_date: lastResetCheckDate
     });
+    console.log('[Background] Monthly counter RESET for new month');
   }
 }
+let lastResetCheckDate = '';
+
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'api-observatory-devtools') {

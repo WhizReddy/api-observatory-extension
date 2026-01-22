@@ -88,42 +88,22 @@ let trackingEnabled = false; // from popup (storage)
 let events = [];
 
 // Monthly Request Counter Management
-async function loadMonthlyCounter() {
-  const data = await chrome.storage.local.get(['monthly_requests', 'counter_reset_date']);
-  const now = new Date();
-  const resetDate = data.counter_reset_date ? new Date(data.counter_reset_date) : null;
+// Redundant functions removed - background manages this now
 
-  // Check if we need to reset (new month)
-  if (!resetDate || resetDate.getMonth() !== now.getMonth() || resetDate.getFullYear() !== now.getFullYear()) {
-    MONTHLY_REQUEST_COUNT = 0;
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    await chrome.storage.local.set({
-      monthly_requests: 0,
-      counter_reset_date: nextMonth.toISOString()
-    });
-    console.log('[API Observatory] Monthly counter reset for new month');
-  } else {
-    MONTHLY_REQUEST_COUNT = data.monthly_requests || 0;
-  }
-  updateMonthlyCounter();
-}
-
-function updateMonthlyCounter() {
-  chrome.storage.local.set({ monthly_requests: MONTHLY_REQUEST_COUNT });
-
-  // Only update status for free users when they're getting close or over limit
+function updateMonthlyCounterUI() {
   if (!IS_PREMIUM) {
     const remaining = FREE_MONTHLY_LIMIT - MONTHLY_REQUEST_COUNT;
 
-    // Only show warning when under 50 remaining or at limit
     if (remaining <= 0) {
       setStatus(`❌ Monthly limit - Upgrade to Pro!`, '#f56c6c');
     } else if (remaining < 50) {
       setStatus(`⚠️ ${remaining}/${FREE_MONTHLY_LIMIT} requests left this month`, '#e6a23c');
+    } else {
+      setStatus('Connected', '#67c23a');
     }
-    // Don't override status when plenty of requests left
   }
 }
+
 
 
 function canStream() {
@@ -320,14 +300,11 @@ function connect() {
       const p = msg.payload || {};
       if (!p.url) return;
 
-      // Sync monthly count with storage (background increments this)
-      chrome.storage.local.get('monthly_requests', (data) => {
-        MONTHLY_REQUEST_COUNT = data.monthly_requests || 0;
-        if (!IS_PREMIUM && MONTHLY_REQUEST_COUNT > FREE_MONTHLY_LIMIT) {
-          setStatus(`❌ Monthly limit reached (${FREE_MONTHLY_LIMIT} requests)`, '#f56c6c');
-          return;
-        }
-      });
+      // Monthly limit check (variable updated via storage listener)
+      if (!IS_PREMIUM && MONTHLY_REQUEST_COUNT >= FREE_MONTHLY_LIMIT) {
+        setStatus(`❌ Monthly limit reached (${FREE_MONTHLY_LIMIT} requests)`, '#f56c6c');
+        return;
+      }
 
 
       // console.log('[API Observatory] Logging event:', p.method, p.url);
@@ -372,18 +349,22 @@ function connect() {
   IS_PREMIUM = data.is_premium === true;
 
   // Load monthly counter for free users
-  await loadMonthlyCounter();
+  const localData = await chrome.storage.local.get('monthly_requests');
+  MONTHLY_REQUEST_COUNT = localData.monthly_requests || 0;
+  updateMonthlyCounterUI();
 
   updatePremiumUI();
 
-  // Listen for upgrades (e.g. from payment page)
+  // Listen for background state changes
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes.is_premium) {
       IS_PREMIUM = changes.is_premium.newValue === true;
       updatePremiumUI();
-      if (IS_PREMIUM) {
-        setStatus('Connected', '#67c23a'); // Clear monthly limit message
-      }
+      if (IS_PREMIUM) setStatus('Connected', '#67c23a');
+    }
+    if (area === 'local' && changes.monthly_requests) {
+      MONTHLY_REQUEST_COUNT = changes.monthly_requests.newValue || 0;
+      updateMonthlyCounterUI();
     }
   });
 
