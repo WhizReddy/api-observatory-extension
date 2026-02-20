@@ -75,5 +75,38 @@
       throw err;
     }
   };
+
+  // --- XHR Interception ---
+  const originalXHR = window.XMLHttpRequest;
+  const xhrOpen = originalXHR.prototype.open;
+  const xhrSend = originalXHR.prototype.send;
+
+  originalXHR.prototype.open = function (method, url, async, user, password) {
+    this._method = method;
+    this._url = url;
+    this._startTime = 0;
+    return xhrOpen.apply(this, arguments);
+  };
+
+  originalXHR.prototype.send = function (body) {
+    try { this._startTime = now(); } catch { this._startTime = Date.now(); }
+
+    const reqBody = typeof body === 'string' ? body : (body ? JSON.stringify(body) : null);
+
+    this.addEventListener('loadend', () => {
+      const durationMs = Math.max(0, Math.round(now() - this._startTime));
+      post({
+        kind: 'xhr',
+        url: this._url,
+        method: String(this._method).toUpperCase(),
+        statusCode: this.status || 0,
+        durationMs,
+        timestamp: Date.now(),
+        requestBody: reqBody ? String(reqBody).substring(0, 5000) : null
+      });
+    });
+
+    return xhrSend.apply(this, arguments);
+  };
 })();
 

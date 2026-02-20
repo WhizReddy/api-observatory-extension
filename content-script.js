@@ -32,4 +32,16 @@
 
     forward(data.payload);
   });
+
+  // Handle re-injection request from DevTools Panel
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg && msg.type === 'REINJECT_PAGE_SCRIPT') {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('page-script.js');
+      script.onload = () => script.remove();
+      (document.head || document.documentElement).appendChild(script);
+      sendResponse({ success: true });
+    }
+    return true;
+  });
 })();

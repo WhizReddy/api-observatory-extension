@@ -6,8 +6,9 @@ async function init() {
   // Side Panel logic
   const openSideBtn = document.getElementById('open-sidepanel');
   if (openSideBtn) {
-    openSideBtn.onclick = () => {
-      chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+    openSideBtn.onclick = async () => {
+      const win = await chrome.windows.getCurrent();
+      chrome.sidePanel.open({ windowId: win.id });
       window.close(); // Close popup after opening side panel
     };
   }
@@ -39,6 +40,17 @@ async function init() {
     };
 
     const avg = stats.requests ? Math.round(stats.totalDuration / stats.requests) : 0;
+
+    const versionTag = document.getElementById('version-tag');
+    if (versionTag) {
+      if (isPremium) {
+        versionTag.textContent = 'PRO VERSION';
+        versionTag.style.color = 'var(--accent-primary)';
+      } else {
+        versionTag.textContent = 'FREE TIER';
+        versionTag.style.color = 'var(--text-muted)';
+      }
+    }
 
     content.innerHTML = `
       <div class="control-card">
@@ -112,7 +124,26 @@ async function init() {
   }
 }
 
-// React to storage changes (e.g. background script increments counter)
-chrome.storage.onChanged.addListener((changes) => {
-  init(); // Simply re-fetch and re-render everything
+// React to storage changes selectively
+chrome.storage.onChanged.addListener((changes, area) => {
+  // Only re-init if domain tracking status or premium status changes
+  // Ignore stats_ changes to prevent infinite rendering loops
+  let shouldReinit = false;
+
+  if (area === 'sync' && changes.is_premium) shouldReinit = true;
+  if (area === 'local' && changes.monthly_requests) shouldReinit = true;
+
+  // Check if a domain key changed in sync storage
+  if (area === 'sync') {
+    for (const key in changes) {
+      if (key !== 'is_premium') {
+        shouldReinit = true;
+        break;
+      }
+    }
+  }
+
+  if (shouldReinit) {
+    init();
+  }
 });
