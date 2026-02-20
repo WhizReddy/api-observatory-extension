@@ -11,15 +11,17 @@ if (document.readyState === 'loading') {
 function init() {
     console.log('[Payment Page] Initializing...');
 
+    const buyBtn = document.getElementById('buy-btn');
     const simBtn = document.getElementById('sim-buy');
     const activateBtn = document.getElementById('activate');
 
-    if (!simBtn || !activateBtn) {
+    if (!buyBtn || !simBtn || !activateBtn) {
         console.error('[Payment Page] Buttons not found!');
         return;
     }
 
     console.log('[Payment Page] Buttons found, attaching listeners...');
+    buyBtn.addEventListener('click', handleStripeCheckout);
     simBtn.addEventListener('click', handleSimBuy);
     activateBtn.addEventListener('click', handleActivate);
     console.log('[Payment Page] ✅ Ready!');
@@ -93,51 +95,71 @@ function handleActivate() {
         return;
     }
 
-    // --- GUMROAD CONFIGURATION ---
-    // User: Replace this with your actual Gumroad product permalink (slug)
-    const GUMROAD_PRODUCT_PERMALINK = 'api-observatory-pro';
+    // --- LOCAL BACKEND CONFIGURATION ---
+    const BACKEND_URL = 'http://localhost:3000';
     // ----------------------------
 
-    // Real Gumroad API call
-    console.log('[Payment Page] Verifying with Gumroad...');
+    // Real API call to our local backend
+    console.log('[Payment Page] Verifying with local backend...');
 
-    fetch('https://api.gumroad.com/v2/licenses/verify', {
+    fetch(`${BACKEND_URL}/verify-license`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            product_permalink: GUMROAD_PRODUCT_PERMALINK,
             license_key: key
         })
     })
         .then(async (res) => {
             const data = await res.json();
-            console.log('[Gumroad API Response]', data);
+            console.log('[Backend API Response]', data);
 
-            // Gumroad returns success: true if the key is valid
             if (data.success === true) {
-                // Check if the purchase is not refunded or disputed
-                const purchase = data.purchase || {};
-                if (purchase.refunded || purchase.chargeback) {
-                    throw new Error('This license has been refunded or disputed.');
-                }
-
                 chrome.storage.sync.set({ is_premium: true }, () => {
-                    console.log('[Gumroad] ✅ Premium status saved!');
-                    showSuccess();
+                    console.log('[Backend] ✅ Premium status saved!');
+                    showSuccess(data.message || 'Key successfully verified.');
                 });
             } else {
-                const errorMsg = data.message || 'License key invalid or not found';
+                const errorMsg = data.message || data.error || 'License key invalid or not found';
                 throw new Error(errorMsg);
             }
         })
         .catch(error => {
-            console.error('[Gumroad Activation Error]', error);
+            console.error('[Activation Error]', error);
             btn.textContent = 'Activate';
             btn.disabled = false;
             err.style.display = 'block';
             err.textContent = '❌ ' + (error.message || 'Verification failed');
         });
+}
+
+// Handle Stripe Checkout
+async function handleStripeCheckout() {
+    const btn = document.getElementById('buy-btn');
+    btn.textContent = 'Redirecting to Stripe...';
+    btn.disabled = true;
+
+    try {
+        const instanceId = await getInstanceId();
+        const response = await fetch('http://localhost:3000/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instanceId })
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+            window.location.href = data.url; // Redirect to Stripe Checkout
+        } else {
+            throw new Error(data.error || 'Failed to create session');
+        }
+    } catch (error) {
+        console.error('[Stripe Error]', error);
+        alert('Failed to connect to payment server. Make sure it is running heavily (node payment-server/server.js).\n\nError: ' + error.message);
+        btn.textContent = 'Purchase License ($5)';
+        btn.disabled = false;
+    }
 }
 
