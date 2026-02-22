@@ -1,16 +1,17 @@
 {
-	"name": "api-observatory",
-	"displayName": "API Observatory",
-	"description": "Live API observability inside Chrome DevTools (Chrome Extension).",
-	"version": "1.2.5",
-	"license": "MIT",
-	"scripts": {
-		"lint": "eslint"
-	},
-	"devDependencies": {
-		"@eslint/js": "^9.13.0",
-		"@stylistic/eslint-plugin": "^2.9.0",
-		"eslint": "^9.13.0",
-		"globals": "^15.11.0"
-	}
+  "name": "api-observatory",
+  "displayName": "API Observatory",
+  "description": "Live API observability inside Chrome DevTools (Chrome Extension).",
+  "version": "1.2.5",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint",
+    "watch": "node --watch test-server.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "eslint": "^9.13.0",
+    "globals": "^15.11.0"
+  }
 }
