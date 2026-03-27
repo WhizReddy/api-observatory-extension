@@ -45,6 +45,9 @@ let MONTHLY_REQUEST_COUNT = 0; // Tracked for free users
 // UI Elements
 const proBadge = document.getElementById('pro-badge');
 
+// Search query state - MUST be declared before event listener
+let searchQuery = '';
+
 /**
  * Handle search input - Pro feature
  * Search is restricted to Pro users
@@ -61,9 +64,6 @@ searchInput.addEventListener('input', (e) => {
   searchQuery = e.target.value.toLowerCase().trim();
   render();
 });
-
-// Search query state
-let searchQuery = '';
 
 /**
  * Update UI elements based on premium status
