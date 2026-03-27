@@ -1,9 +1,25 @@
+/**
+ * popup.js - Extension popup UI
+ * 
+ * Displays quick status overview:
+ * - Premium/Free tier status
+ * - Current domain tracking status
+ * - Monthly usage (for free users)
+ * - Quick stats (requests, latency, errors)
+ * - Toggle domain tracking on/off
+ * - Upgrade button (for free users)
+ */
+
 document.addEventListener('DOMContentLoaded', init);
 
+/**
+ * Initialize popup UI with current status
+ * Loads premium status, monthly usage, and domain stats from storage
+ */
 async function init() {
   const content = document.getElementById('content');
 
-  // Side Panel logic
+  // Side Panel logic - open DevTools side panel when button clicked
   const openSideBtn = document.getElementById('open-sidepanel');
   if (openSideBtn) {
     openSideBtn.onclick = async () => {
@@ -14,33 +30,41 @@ async function init() {
   }
 
   try {
+    // Get active tab info
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+    // Show error if tab is not a web page
     if (!tab?.url || !tab.url.startsWith('http')) {
       content.innerHTML = `<div class="err">Open a website tab to use API Observatory.</div>`;
       return;
     }
 
+    // Extract domain from tab URL
     const domain = new URL(tab.url).hostname;
     console.log('[Popup] Domain:', domain);
+    
+    // Load storage data for this domain
     const syncData = await chrome.storage.sync.get([domain, 'is_premium']);
     const localData = await chrome.storage.local.get(['monthly_requests', 'stats_' + domain]);
     console.log('[Popup] Storage Data:', { syncData, localData });
 
-    // Check Status
-    const enabled = syncData[domain] !== false;
+    // Extract status flags
+    const enabled = syncData[domain] !== false; // Default: enabled
     const isPremium = syncData.is_premium === true;
     const monthlyRequests = localData.monthly_requests || 0;
     const FREE_MONTHLY_LIMIT = 200;
 
+    // Load statistics for this domain
     const stats = localData['stats_' + domain] || {
       requests: 0,
       errors: 0,
       totalDuration: 0
     };
 
+    // Calculate average latency
     const avg = stats.requests ? Math.round(stats.totalDuration / stats.requests) : 0;
 
+    // Update version tag based on premium status
     const versionTag = document.getElementById('version-tag');
     if (versionTag) {
       if (isPremium) {
@@ -52,6 +76,7 @@ async function init() {
       }
     }
 
+    // Build and render UI
     content.innerHTML = `
       <div class="control-card">
         <div class="domain-info">
@@ -107,13 +132,18 @@ async function init() {
       </div>
     `;
 
+    // Add event listener for toggle button
     document.getElementById('toggle-btn').addEventListener('click', async () => {
+      // Toggle tracking status for this domain
       await chrome.storage.sync.set({ [domain]: !enabled });
+      // Re-render to show updated status
       init();
     });
 
+    // Add event listener for upgrade button (free users only)
     if (!isPremium) {
       document.getElementById('upgrade-btn').addEventListener('click', () => {
+        // Open payment page in new tab
         chrome.tabs.create({ url: 'payment.html' });
       });
     }
@@ -124,16 +154,26 @@ async function init() {
   }
 }
 
-// React to storage changes selectively
+/**
+ * React to storage changes and update popup UI
+ * Listens for: premium status, monthly counter, and domain tracking changes
+ */
 chrome.storage.onChanged.addListener((changes, area) => {
-  // Only re-init if domain tracking status or premium status changes
-  // Ignore stats_ changes to prevent infinite rendering loops
+  // Determine if we should re-render the popup
   let shouldReinit = false;
 
-  if (area === 'sync' && changes.is_premium) shouldReinit = true;
-  if (area === 'local' && changes.monthly_requests) shouldReinit = true;
+  // Re-render if premium status changed
+  if (area === 'sync' && changes.is_premium) {
+    shouldReinit = true;
+  }
+  
+  // Re-render if monthly requests changed (for free users)
+  if (area === 'local' && changes.monthly_requests) {
+    shouldReinit = true;
+  }
 
-  // Check if a domain key changed in sync storage
+  // Re-render if any domain tracking status changed
+  // (Ignore stats_ changes to prevent excessive re-renders)
   if (area === 'sync') {
     for (const key in changes) {
       if (key !== 'is_premium') {
@@ -143,6 +183,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
   }
 
+  // Re-render if needed
   if (shouldReinit) {
     init();
   }
